@@ -1,6 +1,7 @@
 package com.soniya.expense_tracker.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "expenses")
@@ -12,6 +13,7 @@ public class Expense {
     private double amount;
     private String category;
     private String description;
+    private LocalDate expenseDate;
 
     // getter and setter for fields
 
@@ -45,6 +47,14 @@ public class Expense {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public LocalDate getExpenseDate() {
+        return expenseDate;
+    }
+
+    public void setExpenseDate(LocalDate expenseDate) {
+        this.expenseDate = expenseDate;
     }
 
 }
