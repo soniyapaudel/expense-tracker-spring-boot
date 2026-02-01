@@ -1,0 +1,10 @@
+Id, Amount, Category, Description, ExpenseDate
+2,5040.00,health,buy medicine from medical,
+4,6770.00,food,buy pizza  burger and another kind of snacks ,
+5,5040.00,health,buy medicines from medical  ,
+6,4400.00,groceries,buy food items  veggies  groceries like oil sugar etc,
+7,9900.00,groceries,buy food items  veggies  groceries,
+8,9900.00,groceries,buy food items  veggies  groceries,2025-01-25
+9,7500.00,entertainment,buy tickets for movies and  buy popcorn,2025-01-18
+10,1200.00,travel,bus tickets,2025-01-08
+11,6000.00,travel,bus ticket + food and snacks,2025-01-12
