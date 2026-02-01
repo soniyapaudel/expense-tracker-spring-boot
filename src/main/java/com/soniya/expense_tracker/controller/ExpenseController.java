@@ -2,6 +2,8 @@ package com.soniya.expense_tracker.controller;
 
 import com.soniya.expense_tracker.model.Expense;
 import com.soniya.expense_tracker.repository.ExpenseRepository;
+import com.soniya.expense_tracker.service.ExpensePdfService;
+import com.soniya.expense_tracker.service.ExpenseCsvService;
 
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,11 +15,6 @@ import java.util.Map;
 import java.util.HashMap;
 
 import org.springframework.http.ResponseEntity;
-import java.io.StringWriter;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import java.io.PrintWriter;
-import java.io.FileWriter;
 
 @RestController
 @RequestMapping("/expenses")
@@ -136,37 +133,26 @@ public class ExpenseController {
 
     // Generate all report in csv file
     @GetMapping("/report/csv")
-    public ResponseEntity<String> generateCsvAndSave() {
-
+    public ResponseEntity<String> generateCsv() {
         List<Expense> expenses = expenseRepository.findAll();
+        String filePath = expenseCsvService.generateCsv(expenses);
 
-        String filePath = "expenses_report.csv";
-        try (PrintWriter writer = new PrintWriter(new FileWriter(filePath))) {
+        return ResponseEntity.ok("CSV file saved successfully at" + filePath);
 
-            // csv header
-            writer.println("Id, Amount, Category, Description, ExpenseDate");
-            // csv rows
-            for (Expense e : expenses) {
-                String category = e.getCategory() != null ? e.getCategory() : "";
-                String description = e.getDescription() != null ? e.getDescription().replaceAll(",", " ") : "";
-                String date = e.getExpenseDate() != null ? e.getExpenseDate().toString() : "";
+    }
 
-                writer.printf("%d,%.2f,%s,%s,%s%n",
-                        e.getId(),
-                        e.getAmount(),
-                        category,
-                        description,
-                        date);
-            }
-            writer.flush();
+    // Pdf Service Callling
 
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return ResponseEntity.status(500).body("Error generating CSV:" + ex.getMessage());
-        }
+    @Autowired
+    private ExpensePdfService expensePdfService;
+    @Autowired
+    private ExpenseCsvService expenseCsvService;
 
-        return ResponseEntity.ok("CSV file saved successfullly at " + filePath);
-
+    @GetMapping("/report/pdf")
+    public String generatePdf() {
+        List<Expense> expenses = expenseRepository.findAll();
+        expensePdfService.generateExpensePdf(expenses);
+        return "PDF generated successfully!";
     }
 
 }
