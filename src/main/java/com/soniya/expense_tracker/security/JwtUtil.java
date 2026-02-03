@@ -10,15 +10,16 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    private final Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-    private final long EXPIRATION = 100 * 60 * 60;
+    private final String SECRET_KEY = "your_super_secret_key_that_is_at_least_32_characters_long_for_hs256";
+    private final Key key = Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
+    private final long EXPIRATION = 100 * 60 * 60 * 1000;
 
     public String generateToken(String username) {
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
-                .signWith(key)
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -29,6 +30,19 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            System.err.println("JWT validation failed:" + e.getMessage());
+            return false;
+        }
     }
 
 }

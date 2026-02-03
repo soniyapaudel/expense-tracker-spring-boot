@@ -27,6 +27,7 @@ public class AuthController {
     @PostMapping("/register")
     public String register(@RequestBody User user) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        userRepository.save(user);
         return "User registered successfully";
     }
 
