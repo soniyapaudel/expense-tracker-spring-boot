@@ -31,3 +31,28 @@ build/
 
 ### VS Code ###
 .vscode/
+### Environment Variables & Credentials ###
+.env
+.env.local
+.env.*.local
+setenv.bat
+setenv.sh
+application.properties.local
+application-local.properties
+application-dev.properties
+application-prod.properties
+
+### Sensitive Files ###
+*.key
+*.pem
+credentials.json
+secrets.properties
+oauth2-credentials.json
+
+### OS ###
+.DS_Store
+Thumbs.db
+
+### Logs ###
+*.log
+logs/
