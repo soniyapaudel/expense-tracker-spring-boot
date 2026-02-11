@@ -14,22 +14,35 @@ public class JwtUtil {
     private final Key key = Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
     private final long EXPIRATION = 1000 * 60 * 60 * 10;
 
-    public String generateToken(String username) {
+    public String generateToken(Object subject) {
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(subject.toString())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public String extractUsername(String token) {
+    public String extractSubject(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
+    }
+
+    public String extractUsername(String token) {
+        return extractSubject(token);
+    }
+
+    public Long extractUserId(String token) {
+        try {
+            String subject = extractSubject(token);
+            return Long.parseLong(subject);
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("Invalid token format");
+        }
     }
 
     public boolean validateToken(String token) {
