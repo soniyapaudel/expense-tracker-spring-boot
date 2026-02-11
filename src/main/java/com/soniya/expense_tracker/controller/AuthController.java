@@ -26,10 +26,19 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public String register(@RequestBody User user) {
+    public Map<String, String> register(@RequestBody User user) {
+
+        // check if user exists
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already exists");
+        }
+
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        userRepository.save(user);
-        return "User registered successfully";
+        User savedUser = userRepository.save(user);
+
+        String token = jwtUtil.generateToken(savedUser.getUsername());
+        return Map.of("token", token, "message", "User registered successfully");
+
     }
 
     @PostMapping("/login")
