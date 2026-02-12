@@ -1,82 +1,139 @@
 package com.soniya.expense_tracker.controller;
 
 import com.soniya.expense_tracker.model.Expense;
+import com.soniya.expense_tracker.model.User;
 import com.soniya.expense_tracker.repository.ExpenseRepository;
+import com.soniya.expense_tracker.repository.UserRepository;
+import com.soniya.expense_tracker.security.JwtUtil;
 import com.soniya.expense_tracker.service.ExpensePdfService;
 import com.soniya.expense_tracker.service.ExpenseCsvService;
 
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.HashMap;
 
-import org.springframework.http.ResponseEntity;
-
 @RestController
 @RequestMapping("/expenses")
 public class ExpenseController {
 
     @Autowired
-
     private ExpenseRepository expenseRepository;
 
-    // create Post
+    @Autowired
+    private UserRepository userRepository;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    @Autowired
+    private ExpensePdfService expensePdfService;
+
+    @Autowired
+    private ExpenseCsvService expenseCsvService;
+
+    // Helper method to get authenticated user
+    private User getAuthenticatedUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new RuntimeException("User not authenticated");
+        }
+
+        String subject = auth.getName(); // This is the subject from JWT
+        System.out.println("Debug - Subject from auth: " + subject);
+
+        if (subject == null || subject.isEmpty() || subject.equals("anonymousUser")) {
+            throw new RuntimeException("User not authenticated");
+        }
+
+        try {
+            Long userId = Long.parseLong(subject);
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+            return user;
+        } catch (NumberFormatException e) {
+            System.out.println("Debug - Failed to parse userId: " + subject);
+            throw new RuntimeException("Invalid user authentication: subject is not a valid Long");
+        }
+    }
+
+    // CREATE: Add expense for authenticated user
     @PostMapping
     public Expense addExpense(@RequestBody Expense expense) {
+        User user = getAuthenticatedUser();
+        expense.setUser(user);
         return expenseRepository.save(expense);
     }
 
-    // Read all (Get)
+    // READ ALL: Get all expenses for authenticated user
     @GetMapping
     public List<Expense> getAllExpenses(@RequestParam(required = false) String category) {
+        User user = getAuthenticatedUser();
+
         if (category != null) {
-            return expenseRepository.findByCategory(category);
+            return expenseRepository.findByUserIdAndCategory(user.getId(), category);
         }
-        return expenseRepository.findAll();
+        return expenseRepository.findByUserId(user.getId());
     }
 
-    // Read by id(GET)
-
+    // READ BY ID: Get single expense (verify ownership)
     @GetMapping("/{id}")
     public Expense getExpenseById(@PathVariable Long id) {
-        return expenseRepository.findById(id).orElse(null);
+        User user = getAuthenticatedUser();
+        Expense expense = expenseRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Expense not found"));
+
+        // Verify ownership
+        if (!expense.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized: You can only view your own expenses");
+        }
+        return expense;
     }
 
-    // Update(PUT)
+    // UPDATE: Update expense (verify ownership)
     @PutMapping("/{id}")
     public Expense updateExpense(@PathVariable Long id, @RequestBody Expense updatedExpense) {
-        Expense expense = expenseRepository.findById(id).orElse(null);
+        User user = getAuthenticatedUser();
 
-        if (expense != null) {
-            expense.setAmount(updatedExpense.getAmount());
-            expense.setCategory(updatedExpense.getCategory());
-            expense.setDescription(updatedExpense.getDescription());
-            return expenseRepository.save(expense);
+        Expense expense = expenseRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Expense not found"));
 
+        // Verify ownership
+        if (!expense.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized: You can only update your own expenses");
         }
 
-        return null;
+        expense.setAmount(updatedExpense.getAmount());
+        expense.setCategory(updatedExpense.getCategory());
+        expense.setDescription(updatedExpense.getDescription());
+        expense.setExpenseDate(updatedExpense.getExpenseDate());
 
+        return expenseRepository.save(expense);
     }
 
-    // Partial Update
+    // PARTIAL UPDATE: Patch expense
     @PatchMapping("/{id}")
     public Expense patchExpense(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
-        Expense expense = expenseRepository.findById(id).orElse(null);
+        User user = getAuthenticatedUser();
 
-        if (expense == null) {
-            return null;
+        Expense expense = expenseRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Expense not found"));
+
+        // Verify ownership
+        if (!expense.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized: You can only update your own expenses");
         }
 
-        // Update only provided fields
         if (updates.containsKey("amount")) {
             expense.setAmount(Double.valueOf(updates.get("amount").toString()));
-
         }
 
         if (updates.containsKey("category")) {
@@ -88,32 +145,43 @@ public class ExpenseController {
         }
 
         if (updates.containsKey("expenseDate")) {
-
             expense.setExpenseDate(LocalDate.parse(updates.get("expenseDate").toString()));
         }
 
         return expenseRepository.save(expense);
     }
 
-    // Delete (DELETE)
-
+    // DELETE: Delete expense (verify ownership)
     @DeleteMapping("/{id}")
     public String deleteExpense(@PathVariable Long id) {
+        User user = getAuthenticatedUser();
+
+        Expense expense = expenseRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Expense not found"));
+
+        // Verify ownership
+        if (!expense.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized: You can only delete your own expenses");
+        }
+
         expenseRepository.deleteById(id);
         return "Expense deleted successfully";
     }
 
+    // Get expenses by date range
     @GetMapping("/by-date")
-    public List<Expense> getExpensesByDateRange(@RequestParam LocalDate startDate,
+    public List<Expense> getExpensesByDateRange(
+            @RequestParam LocalDate startDate,
             @RequestParam LocalDate endDate) {
-        return expenseRepository.findByExpenseDateBetween(startDate, endDate);
-
+        User user = getAuthenticatedUser();
+        return expenseRepository.findByUserIdAndExpenseDateBetween(user.getId(), startDate, endDate);
     }
 
     // Total expenses by category
     @GetMapping("/report/category")
     public Map<String, Double> getTotalByCategory() {
-        List<Expense> expenses = expenseRepository.findAll();
+        User user = getAuthenticatedUser();
+        List<Expense> expenses = expenseRepository.findByUserId(user.getId());
         Map<String, Double> report = new HashMap<>();
 
         for (Expense e : expenses) {
@@ -124,35 +192,29 @@ public class ExpenseController {
 
     // Total expenses in date range
     @GetMapping("/report/total")
-    public Double getTotalExpenses(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+    public Double getTotalExpenses(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        List<Expense> expenses = expenseRepository.findByExpenseDateBetween(startDate, endDate);
-        double total = expenses.stream().mapToDouble(Expense::getAmount).sum();
-        return total;
+        User user = getAuthenticatedUser();
+        List<Expense> expenses = expenseRepository.findByUserIdAndExpenseDateBetween(user.getId(), startDate, endDate);
+        return expenses.stream().mapToDouble(Expense::getAmount).sum();
     }
 
-    // Generate all report in csv file
+    // Generate CSV report
     @GetMapping("/report/csv")
     public ResponseEntity<String> generateCsv() {
-        List<Expense> expenses = expenseRepository.findAll();
+        User user = getAuthenticatedUser();
+        List<Expense> expenses = expenseRepository.findByUserId(user.getId());
         String filePath = expenseCsvService.generateCsv(expenses);
-
-        return ResponseEntity.ok("CSV file saved successfully at" + filePath);
-
+        return ResponseEntity.ok("CSV file saved successfully at " + filePath);
     }
 
-    // Pdf Service Callling
-
-    @Autowired
-    private ExpensePdfService expensePdfService;
-    @Autowired
-    private ExpenseCsvService expenseCsvService;
-
+    // Generate PDF report
     @GetMapping("/report/pdf")
     public String generatePdf() {
-        List<Expense> expenses = expenseRepository.findAll();
+        User user = getAuthenticatedUser();
+        List<Expense> expenses = expenseRepository.findByUserId(user.getId());
         expensePdfService.generateExpensePdf(expenses);
         return "PDF generated successfully!";
     }
-
 }
