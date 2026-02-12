@@ -22,13 +22,11 @@ public class AuthController {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
-
     }
 
     @PostMapping("/register")
     public Map<String, String> register(@RequestBody User user) {
-
-        // check if user exists
+        // Check if user exists
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             throw new RuntimeException("Username already exists");
         }
@@ -36,9 +34,8 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         User savedUser = userRepository.save(user);
 
-        String token = jwtUtil.generateToken(savedUser.getUsername());
+        String token = jwtUtil.generateToken(savedUser.getId());
         return Map.of("token", token, "message", "User registered successfully");
-
     }
 
     @PostMapping("/login")
@@ -50,9 +47,7 @@ public class AuthController {
             throw new RuntimeException("Invalid credentials");
         }
 
-        String token = jwtUtil.generateToken(dbUser.getUsername());
+        String token = jwtUtil.generateToken(dbUser.getId());
         return Map.of("token", token);
-
     }
-
 }
