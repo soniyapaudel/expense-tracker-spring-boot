@@ -15,6 +15,19 @@ public class Expense {
     private String description;
     private LocalDate expenseDate;
 
+    // User relationship
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    // getter and setter for user
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
     // getter and setter for fields
 
     public Long getId() {
