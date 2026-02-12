@@ -1,6 +1,8 @@
 package com.soniya.expense_tracker.model;
 
 import jakarta.persistence.*;
+import java.util.List;
+import java.util.ArrayList;
 
 @Entity
 @Table(name = "users")
@@ -14,6 +16,44 @@ public class User {
     private String username;
 
     private String password;
+
+    // email field for Oauth2
+
+    @Column(unique = true)
+    private String email;
+
+    // expenses relationship
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<Expense> expenses = new ArrayList<>();
+
+    // getter and setters for email
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+
+    }
+
+    public List<Expense> getExpenses() {
+        return expenses;
+    }
+
+    public void setExpenses(List<Expense> expenses) {
+        this.expenses = expenses;
+    }
+
+    public void addExpense(Expense expense) {
+        expenses.add(expense);
+        expense.setUser(this);
+
+    }
+
+    public void removeExpense(Expense expense) {
+        expenses.remove(expense);
+        expense.setUser(null);
+    }
 
     // getter and setters
 
